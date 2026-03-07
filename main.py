@@ -55,7 +55,6 @@ def SPOTI_partse_album_json(album_json):
 
 def SPOTI_get_album(album_url,access_token):
     album_id = album_url.split('/album/')[1].split('?')[0]
-    access_token = get_access_token()
     response = requests.get(url= f'https://api.spotify.com/v1/albums/{album_id}',
                             headers={'Authorization': f'Bearer {access_token}'})
     if response.status_code != 200:
