@@ -45,7 +45,7 @@ def SPOTI_partse_album_json(album_json):
     album_artists = ''
     for artist in album_json['artists']:
         if album_artists == '': album_artists = artist['name']
-        else: artist += f',{artist['name']}'
+        else: album_artists += f',{artist['name']}'
 
     album = Album(name=album_name,cover_url=album_img_url,artists=album_artists)
     for track in album_json['tracks']['items']:
