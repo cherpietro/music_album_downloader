@@ -4,6 +4,8 @@ import requests
 import base64
 import yt_dlp
 import sys   
+import music_tag
+from urllib.request import urlopen
 
 clear = lambda: os.system('clear')
 
@@ -102,8 +104,9 @@ import textwrap
 
 def YD_DLP_get_titles(url):
     album = []
+    title = None
     ydl_opts = {
-        # "quiet": True,
+        "quiet": True,
         'outtmpl': '%(playlist_title)s/%(title)s.%(ext)s',
         'format': 'bestvideo+bestaudio/best', 
         'postprocessors': [
@@ -116,15 +119,15 @@ def YD_DLP_get_titles(url):
         # 'cookiesfrombrowser': ('firefox',)   #only for windows 
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        playlist_dict = ydl.extract_info(url, download=False)
-
+        playlist_dict = ydl.extract_info(url, download=True)
+        title = playlist_dict['title']
         for video in playlist_dict["entries"]:
             if not video:
                 print("ERROR: Unable to get info. Continuing...")
             else:
                 album.append({"title":str(video.get("title")),
                                 "duration":str(video.get("duration"))})
-    return album
+    return album, title
 def get_spotify_album():
     token = get_access_token()
     if token == None:
@@ -160,7 +163,7 @@ if __name__ == '__main__':
     if album == None:
         sys.exit(1) 
         
-    ytAlbum = YD_DLP_get_titles(sys.argv[1])
+    ytAlbum, ytTitle = YD_DLP_get_titles(sys.argv[1])
     clear()
     if len(ytAlbum) == len(album.tracks):
         match = 0
@@ -170,6 +173,13 @@ if __name__ == '__main__':
             print(f'{clean_text(album.tracks[index].name.lower()) in clean_text(ytAlbum[index]['title'].lower())}')
         if match/len(ytAlbum) > 0.5:
             print('ID3 TAGS SHOULD BE CORRECT')
+            for index, _ in enumerate(ytAlbum):
+                f = music_tag.load_file(f"{ytTitle}/{ytAlbum[index]['title']}.mp3")
+                with urlopen(album.cover_url) as img_in:
+                    f['artwork'] = img_in.read()
+                with urlopen(album.cover_url) as img_in:
+                    f.append_tag('artwork', img_in.read())
+                f.save()
             sys.exit(0) 
     print('ID3 TAGS ARE NOT CORRECT')
 
