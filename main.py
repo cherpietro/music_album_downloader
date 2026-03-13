@@ -98,7 +98,7 @@ def SPOTY_search_album_uri_by_name(access_token):
         print("Invalid index.")
         return None
     
-    clear()
+    # clear()
     return query_results['albums']['items'][index]['uri'].split(':')[2]
 import textwrap
 
@@ -175,6 +175,11 @@ if __name__ == '__main__':
             print('ID3 TAGS SHOULD BE CORRECT')
             for index, _ in enumerate(ytAlbum):
                 f = music_tag.load_file(f"{ytTitle}/{ytAlbum[index]['title']}.mp3")
+                f['title'] = album.tracks[index].name
+                f['album'] = album.name
+                f['tracknumber'] = album.tracks[index].index
+                f['albumartist'] = album.artists
+                
                 with urlopen(album.cover_url) as img_in:
                     f['artwork'] = img_in.read()
                 with urlopen(album.cover_url) as img_in:
