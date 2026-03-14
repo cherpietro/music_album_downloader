@@ -15,17 +15,21 @@ client_secret=os.getenv('CLI_SC')
 client_credentials = base64.b64encode(bytes(f'{client_id}:{client_secret}', 'utf-8')).decode('utf-8')
 
 class Track:
-    def __init__(self,name,index,duration):
+    def __init__(self,name,track_number,duration,artist,disc_number):
         self.name = name
-        self.index = index
+        self.track_number = track_number
         self.duration = duration
+        self.artist = artist
+        self.disc_numer = disc_number
 
 class Album:
-    def __init__(self, name, cover_url, artists):
+    def __init__(self, name, cover_url, artists,release_year):
         self.name = name    
         self.cover_url = cover_url  
         self.artists = artists  
         self.tracks = []
+        self.release_year = release_year
+
     def add_track(self,track):
         self.tracks.append(track)
         
@@ -47,15 +51,20 @@ def SPOTI_parse_album_json(album_json):
             biggest_image_width = image['width']
 
     album_name = album_json['name']
-
+    album_genre = album_json['genres']
+    album_release_year = album_json['release_date'].split('-')[0]
     album_artists = ''
     for artist in album_json['artists']:
         if album_artists == '': album_artists = artist['name']
         else: album_artists += f',{artist['name']}'
 
-    album = Album(name=album_name,cover_url=album_img_url,artists=album_artists)
+    album = Album(name=album_name,cover_url=album_img_url,artists=album_artists,release_year = album_release_year)
     for track in album_json['tracks']['items']:
-        album.add_track(Track(name=track['name'],index=track['track_number'],duration=track['duration_ms']))
+        track_artists = ''
+        for artist in track['artists']:
+            if track_artists == '': track_artists = artist['name']
+            else: track_artists += f',{artist['name']}'
+        album.add_track(Track(name=track['name'],track_number=track['track_number'],duration=track['duration_ms'],artist=track_artists,disc_number=track['disc_number']))
 
     return album
 
@@ -66,7 +75,6 @@ def SPOTI_search_album(album_url,access_token):
     if response.status_code != 200:
         print('Error:', response.status_code, response.text)
         return
-    
     return SPOTI_parse_album_json(response.json())
 
 def SPOTY_search_album_uri_by_name(access_token):
@@ -106,6 +114,7 @@ def YD_DLP_get_titles(url):
     album = []
     title = None
     ydl_opts = {
+        # 'js_runtimes': {'deno': {'path': None}, 'node': {'path': 'C:/Program Files/nodejs/node.exe'}},
         "quiet": True,
         'outtmpl': '%(playlist_title)s/%(title)s.%(ext)s',
         'format': 'bestvideo+bestaudio/best', 
@@ -160,9 +169,9 @@ if __name__ == '__main__':
         print("Not list url") 
         sys.exit(1) 
     album = get_spotify_album()
+    
     if album == None:
         sys.exit(1) 
-        
     ytAlbum, ytTitle = YD_DLP_get_titles(sys.argv[1])
     clear()
     if len(ytAlbum) == len(album.tracks):
@@ -177,14 +186,19 @@ if __name__ == '__main__':
                 f = music_tag.load_file(f"{ytTitle}/{ytAlbum[index]['title']}.mp3")
                 f['title'] = album.tracks[index].name
                 f['album'] = album.name
-                f['tracknumber'] = album.tracks[index].index
+                f['artist'] = album.tracks[index].artist
+                f['tracknumber'] = album.tracks[index].track_number
+                f['totaltracks'] = len(ytAlbum)
                 f['albumartist'] = album.artists
-                
+                f['year'] = album.release_year
                 with urlopen(album.cover_url) as img_in:
                     f['artwork'] = img_in.read()
-                with urlopen(album.cover_url) as img_in:
-                    f.append_tag('artwork', img_in.read())
+                # with urlopen(album.cover_url) as img_in:
+                #     f.append_tag('artwork', img_in.read())
                 f.save()
-            sys.exit(0) 
-    print('ID3 TAGS ARE NOT CORRECT')
+        else:
+            print('Names does not match')
+
+    else:
+        print('ID3 TAGS ARE NOT CORRECT')
 
