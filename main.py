@@ -63,7 +63,7 @@ def SPOTI_parse_album_json(album_json):
         track_artists = ''
         for artist in track['artists']:
             if track_artists == '': track_artists = artist['name']
-            else: track_artists += f',{artist['name']}'
+            else: track_artists += f'; {artist['name']}'
         album.add_track(Track(name=track['name'],track_number=track['track_number'],duration=track['duration_ms'],artist=track_artists,disc_number=track['disc_number']))
 
     return album
@@ -183,7 +183,7 @@ if __name__ == '__main__':
         if match/len(ytAlbum) > 0.5:
             print('ID3 TAGS SHOULD BE CORRECT')
             for index, _ in enumerate(ytAlbum):
-                f = music_tag.load_file(f"{ytTitle}/{ytAlbum[index]['title']}.mp3")
+                f = music_tag.load_file(f"{ytTitle}/{ytAlbum[index]['title'].replace('/', '⧸')}.mp3")
                 f['title'] = album.tracks[index].name
                 f['album'] = album.name
                 f['artist'] = album.tracks[index].artist
