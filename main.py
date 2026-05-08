@@ -114,7 +114,7 @@ def YD_DLP_get_titles(url):
     album = []
     title = None
     ydl_opts = {
-        # 'js_runtimes': {'deno': {'path': None}, 'node': {'path': 'C:/Program Files/nodejs/node.exe'}},
+        'js_runtimes': {'deno': {'path': None}, 'node': {'path': 'C:/Program Files/nodejs/node.exe'}},
         "quiet": True,
         'outtmpl': '%(playlist_title)s/%(title)s.%(ext)s',
         'format': 'bestvideo+bestaudio/best', 
@@ -137,18 +137,19 @@ def YD_DLP_get_titles(url):
                 album.append({"title":str(video.get("title")),
                                 "duration":str(video.get("duration"))})
     return album, title
-def get_spotify_album():
+def get_spotify_album(spoti_uri):
     token = get_access_token()
-    if token == None:
-        print('No token')
-    else:
-        album_uri = SPOTY_search_album_uri_by_name(token)
-        if album_uri == None:
-            return None
-        album_url = f'https://open.spotify.com/intl-es/album/{album_uri}'
-        album = SPOTI_search_album(album_url,token)
+    if spoti_uri == None:
+        if token == None:
+            print('No token')
+        else:
+            spoti_uri = SPOTY_search_album_uri_by_name(token)
+            if spoti_uri == None:
+                return None
+    album_url = f'https://open.spotify.com/intl-es/album/{spoti_uri}'
+    album = SPOTI_search_album(album_url,token)
 
-        return album
+    return album
     
 import unicodedata
 def clean_text(s):
@@ -158,32 +159,38 @@ def clean_text(s):
     return s
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 2 and len(sys.argv) != 3:
         print("Usage: python main.py <youtube_url>") 
         sys.exit(1) 
-
+   
     if not sys.argv[1].startswith("https://www.youtube.com"):
         print("Not youtube url") 
         sys.exit(1) 
     if not "list" in sys.argv[1]:
         print("Not list url") 
         sys.exit(1) 
-    album = get_spotify_album()
+
+    spoti_uri = None
+    if len(sys.argv) == 3 and sys.argv[2].startswith('https://open.spotify.com/intl-es/album/'): #check uri format
+        spoti_uri = sys.argv[2].split('/')[5]
+    album = get_spotify_album(spoti_uri)
     
     if album == None:
         sys.exit(1) 
     ytAlbum, ytTitle = YD_DLP_get_titles(sys.argv[1])
     clear()
     if len(ytAlbum) == len(album.tracks):
-        match = 0
+        match_title = 0
+        match_duration = 0
         for index, _ in enumerate(ytAlbum):
-            if clean_text(album.tracks[index].name.lower()) in clean_text(ytAlbum[index]['title'].lower()): match+=1
-            print(f'{(ytAlbum[index]['title'].lower())} | {album.tracks[index].name.lower()};',end='')
-            print(f'{clean_text(album.tracks[index].name.lower()) in clean_text(ytAlbum[index]['title'].lower())}')
-        if match/len(ytAlbum) > 0.5:
+            if clean_text(album.tracks[index].name.lower()) in clean_text(ytAlbum[index]['title'].lower()): match_title+=1
+            if int(ytAlbum[index]['duration']) - album.tracks[index].duration // 1000 < 2: match_duration+=1
+            print(f'{(ytAlbum[index]['title'].lower())} [{ytAlbum[index]['duration']}] | {album.tracks[index].name.lower()} [{album.tracks[index].duration // 1000}];')
+        print(f'title match: {match_title/len(ytAlbum)} | duration match {match_duration/len(ytAlbum)}')
+        if match_title/len(ytAlbum) > 0.5 or match_duration/len(ytAlbum) > 0.7:
             print('ID3 TAGS SHOULD BE CORRECT')
             for index, _ in enumerate(ytAlbum):
-                f = music_tag.load_file(f"{ytTitle}/{ytAlbum[index]['title'].replace('/', '⧸')}.mp3")
+                f = music_tag.load_file(f"{ytTitle.replace("\"", "＂").replace("?", "？").replace(":", "：").replace("/", "⧸")}/{ytAlbum[index]['title'].replace("\"", "＂").replace("?", "？").replace(":", "：").replace("/", "⧸")}.mp3")
                 f['title'] = album.tracks[index].name
                 f['album'] = album.name
                 f['artist'] = album.tracks[index].artist
@@ -197,7 +204,26 @@ if __name__ == '__main__':
                 #     f.append_tag('artwork', img_in.read())
                 f.save()
         else:
-            print('Names does not match')
+            for index, _ in enumerate(ytAlbum):
+                album.tracks[index].name
+            proceed = input("Names does not match\nStill want to proceed? y/n:")
+            while proceed not in ['y','Y','n','N']:
+                proceed = input()
+            if  proceed in ['y','Y']:
+                for index, _ in enumerate(ytAlbum):
+                    f = music_tag.load_file(f"{ytTitle.replace("\"", "＂").replace(":", "：").replace("/", "⧸")}/{ytAlbum[index]['title'].replace("\"", "＂").replace("?", "？").replace(":", "：").replace("/", "⧸")}.mp3")
+                    f['title'] = album.tracks[index].name
+                    f['album'] = album.name
+                    f['artist'] = album.tracks[index].artist
+                    f['tracknumber'] = album.tracks[index].track_number
+                    f['totaltracks'] = len(ytAlbum)
+                    f['albumartist'] = album.artists
+                    f['year'] = album.release_year
+                    with urlopen(album.cover_url) as img_in:
+                        f['artwork'] = img_in.read()
+                    # with urlopen(album.cover_url) as img_in:
+                    #     f.append_tag('artwork', img_in.read())
+                    f.save()
 
     else:
         print('ID3 TAGS ARE NOT CORRECT')
